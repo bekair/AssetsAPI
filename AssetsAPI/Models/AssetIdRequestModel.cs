@@ -8,7 +8,7 @@ namespace AssetsAPI.Models
 {
     public class AssetIdRequestModel
     {
-        public PropertyEnum Property { get; set; }
+        public PropertyEnum Properties { get; set; }
         public bool Value { get; set; }
     }
 }

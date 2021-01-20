@@ -28,6 +28,11 @@ namespace AssetsAPI.Services
                 Value = assetUpdateModel.Value
             };
 
+            if (!IsAssetExistInDb(updateAsset))
+            {
+                Console.WriteLine($"Asset with the AssetId: {updateAsset.AssetId} could not be found in Db.");
+            }
+
             var isSuitable = CheckAssetCanBeAdded(updateAsset);
             if (isSuitable)
             {
@@ -44,10 +49,11 @@ namespace AssetsAPI.Services
         public ICollection<long> GetAssetIdList(AssetIdRequestModel assetIdRequestModel)
         {
             return _context.Assets.Where(a =>
-                                a.Properties == assetIdRequestModel.Property &&
-                                a.Value == assetIdRequestModel.Value
-                           ).Select(a => a.AssetId)
-                            .ToList();
+                                        a.Properties == assetIdRequestModel.Properties &&
+                                        a.Value == assetIdRequestModel.Value
+                                  )
+                                  .Select(a => a.AssetId)
+                                  .ToList();
         }
 
         public async Task<bool> SaveAssetsFromFile(List<AssetCsvResponseModel> assetCsvList)
@@ -66,6 +72,11 @@ namespace AssetsAPI.Services
                     Value = asset.Value
                 };
 
+                if (!IsAssetExistInDb(newAsset))
+                {
+                    Console.WriteLine($"Asset with the AssetId: {newAsset.AssetId} could not be found in Db.");
+                }
+
                 var isSuitable = CheckAssetCanBeAdded(newAsset);
                 if (isSuitable)
                 {
@@ -81,13 +92,6 @@ namespace AssetsAPI.Services
 
         private bool CheckAssetCanBeAdded(Asset asset)
         {
-            if (!IsAssetExistInDb(asset))
-            {
-                Console.WriteLine($"Asset with the AssetId: {asset.AssetId} could not be found in Db.");
-
-                return false;
-            }
-
             var assetTaken = _context.Assets.Where(a => a.Id == asset.Id && a.Properties == asset.Properties);
 
             return !assetTaken.Any(a => a.Timestamp.CompareTo(asset.Timestamp) >= 0);
@@ -96,7 +100,7 @@ namespace AssetsAPI.Services
         private bool IsAssetExistInDb(Asset asset)
         {
             return _context.Assets.Where(a => a.Id == asset.Id && a.Properties == asset.Properties)
-                           .Any();
+                                  .Any();
         }
 
         private ICollection<AssetCsvResponseModel> RemoveOrderedDuplicatesWithEarlierTimestamps(List<AssetCsvResponseModel> assetCsvList)
@@ -116,7 +120,7 @@ namespace AssetsAPI.Services
                 }
 
                 var lastAddedAssetOfRefinedList = refinedAssetList[^1];
-                //Same asset with same property should not be added under favour of our ordered list
+                //Next asset with same property and same AssetId can not be added into refinedAssetList under favour of our ordered list
                 if (!(lastAddedAssetOfRefinedList.AssetId == nextAsset.AssetId && lastAddedAssetOfRefinedList.Properties == nextAsset.Properties))
                 {
                     refinedAssetList.Add(nextAsset);
