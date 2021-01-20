@@ -1,6 +1,7 @@
 ﻿using AssetsAPI.DataAccess;
 using AssetsAPI.Helpers;
 using AssetsAPI.Models;
+using AssetsAPI.ServiceContracts;
 using AssetsAPI.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
@@ -12,10 +13,16 @@ namespace AssetsAPI.Controllers
     [ApiController]
     public class AssetController : ControllerBase
     {
-        private readonly AssetsDbContext _context;
-        public AssetController(AssetsDbContext context)
+        private readonly IAssetService _assetService;
+        public AssetController(IAssetService assetService)
         {
-            _context = context;
+            _assetService = assetService;
+        }
+
+        [HttpGet("Index")]
+        public string Index()
+        {
+            return "API is running...";
         }
 
         [HttpGet("SaveAssets")]
@@ -26,11 +33,21 @@ namespace AssetsAPI.Controllers
             {
                 return false;
             }
-
-            var assetService = new AssetService(_context);
-            var result = await assetService.SaveAssetsFromFile(assetList);
-
-            return true;
+           
+            return await _assetService.SaveAssetsFromFile(assetList);
         }
+
+        [HttpGet("GetAssetIdList")]
+        public List<long> GetAssetIdList([FromBody]AssetIdRequestModel assetIdRequestModel)
+        {
+            return (List<long>)_assetService.GetAssetIdList(assetIdRequestModel);
+        }
+
+        [HttpGet("UpdateAsset")]
+        public bool UpdateAsset([FromBody]AssetUpdateModel assetUpdateModel)
+        {
+            return _assetService.UpdateAsset(assetUpdateModel);
+        }
+
     }
 }

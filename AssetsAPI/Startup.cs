@@ -1,4 +1,6 @@
 using AssetsAPI.DataAccess;
+using AssetsAPI.ServiceContracts;
+using AssetsAPI.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -27,6 +29,9 @@ namespace AssetsAPI
                     options => options.MaxBatchSize(10)
                 )
             );
+
+            services.AddScoped<IAssetService, AssetService>();
+
             services.AddControllers();
         }
 
