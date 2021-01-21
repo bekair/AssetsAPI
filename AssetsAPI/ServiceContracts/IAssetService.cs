@@ -1,6 +1,5 @@
 ﻿using AssetsAPI.Models;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 
 namespace AssetsAPI.ServiceContracts
@@ -9,6 +8,7 @@ namespace AssetsAPI.ServiceContracts
     {
         Task<bool> SaveAssetsFromFile(List<AssetCsvResponseModel> assetCsvList);
         ICollection<long> GetAssetIdList(AssetIdRequestModel assetIdRequestModel);
-        bool UpdateAsset([NotNull]AssetUpdateModel assetUpdateModel);
+        bool UpdateAsset(AssetUpdateModel assetUpdateModel);
+        bool AddDefaultListToDb();
     }
 }

@@ -1,5 +1,7 @@
 ﻿using AssetsAPI.DataAccess;
 using AssetsAPI.Entities;
+using AssetsAPI.Enums;
+using AssetsAPI.Helpers;
 using AssetsAPI.Models;
 using AssetsAPI.ServiceContracts;
 using System;
@@ -18,26 +20,32 @@ namespace AssetsAPI.Services
             _context = context;
         }
 
-        public bool UpdateAsset([NotNull] AssetUpdateModel assetUpdateModel)
+        public bool UpdateAsset(AssetUpdateModel assetUpdateModel)
         {
-            var updateAsset = new Asset
+            var newerAsset = new Asset
             {
                 AssetId = assetUpdateModel.AssetId,
-                Properties = assetUpdateModel.Properties,
+                Properties = (PropertyEnum)EnumExtensions.GetEnumFromDisplayValue<PropertyEnum>(assetUpdateModel.Properties),
                 Timestamp = assetUpdateModel.Timestamp,
                 Value = assetUpdateModel.Value
             };
 
-            if (!IsAssetExistInDb(updateAsset))
+            var updatedAsset = GetAsset(newerAsset);
+            if (updatedAsset == null)
             {
-                Console.WriteLine($"Asset with the AssetId: {updateAsset.AssetId} could not be found in Db.");
+                Console.WriteLine($"Asset with the 'AssetId: {newerAsset.AssetId}, Properties: {newerAsset.Properties}' could not be found in Db.");
+
+                return false;
             }
 
-            var isSuitable = CheckAssetCanBeAdded(updateAsset);
+            var isSuitable = CheckAssetCanBeAdded(newerAsset);
             if (isSuitable)
             {
+                updatedAsset.Properties = newerAsset.Properties;
+                updatedAsset.Value = newerAsset.Value;
+                updatedAsset.Timestamp = newerAsset.Timestamp;
+
                 _context.SaveChanges();
-                _context.Add(updateAsset);
 
                 return true;
             }
@@ -49,7 +57,7 @@ namespace AssetsAPI.Services
         public ICollection<long> GetAssetIdList(AssetIdRequestModel assetIdRequestModel)
         {
             return _context.Assets.Where(a =>
-                                        a.Properties == assetIdRequestModel.Properties &&
+                                        a.Properties == (PropertyEnum)EnumExtensions.GetEnumFromDisplayValue<PropertyEnum>(assetIdRequestModel.Properties) &&
                                         a.Value == assetIdRequestModel.Value
                                   )
                                   .Select(a => a.AssetId)
@@ -61,46 +69,95 @@ namespace AssetsAPI.Services
             //Check the duplicates with the same AssetId and Properties and get the highest Timestamp valued one into list
             var refinedList = RemoveOrderedDuplicatesWithEarlierTimestamps(assetCsvList);
 
+            List<Asset> updatedAssetList = new List<Asset>();
             List<Asset> newAssetList = new List<Asset>();
-            foreach (var asset in refinedList)
+            foreach (var fileAsset in refinedList)
             {
                 var newAsset = new Asset
                 {
-                    AssetId = asset.AssetId,
-                    Properties = asset.Properties,
-                    Timestamp = asset.Timestamp,
-                    Value = asset.Value
+                    AssetId = fileAsset.AssetId,
+                    Properties = fileAsset.Properties,
+                    Timestamp = fileAsset.Timestamp,
+                    Value = fileAsset.Value
                 };
 
-                if (!IsAssetExistInDb(newAsset))
+                var takenAsset = GetAsset(newAsset);
+                if (takenAsset is null)
                 {
-                    Console.WriteLine($"Asset with the AssetId: {newAsset.AssetId} could not be found in Db.");
+                    Console.WriteLine($"Asset with the 'AssetId: {newAsset.AssetId}, Properties: {newAsset.Properties}' could not be found in Db.");
                 }
 
                 var isSuitable = CheckAssetCanBeAdded(newAsset);
                 if (isSuitable)
                 {
-                    newAssetList.Add(newAsset);
+                    //Add the asset that is not existed in db
+                    if (takenAsset == null)
+                    {
+                        newAssetList.Add(new Asset
+                        {
+                            AssetId = newAsset.AssetId,
+                            Properties = newAsset.Properties,
+                            Value = newAsset.Value,
+                            Timestamp = newAsset.Timestamp
+                        });
+
+                        continue;
+                    }
+
+                    takenAsset.Properties = newAsset.Properties;
+                    takenAsset.Value = newAsset.Value;
+                    takenAsset.Timestamp = newAsset.Timestamp;
+
+                    updatedAssetList.Add(newAsset);
                 }
             }
 
-            await _context.Assets.AddRangeAsync(newAssetList);
+            if (newAssetList.Any())
+            {
+                await _context.AddRangeAsync(newAssetList);
+            }
+
             await _context.SaveChangesAsync();
+
+            return true;
+        }
+
+        //Just Mock Default values will be added
+        public bool AddDefaultListToDb()
+        {
+            List<Asset> defaultAssetList = new List<Asset>
+            {
+                new Asset{AssetId = 1, Properties = PropertyEnum.IsCash, Value = false, Timestamp = DateTime.MinValue },
+                new Asset{AssetId = 1, Properties = PropertyEnum.IsFuture, Value = false, Timestamp = DateTime.MinValue },
+                new Asset{AssetId = 2, Properties = PropertyEnum.IsFixIncome, Value = false, Timestamp = DateTime.MinValue },
+                new Asset{AssetId = 2, Properties = PropertyEnum.IsSwap, Value = false, Timestamp = DateTime.MinValue },
+                new Asset{AssetId = 3, Properties = PropertyEnum.IsFuture, Value = false, Timestamp = DateTime.MinValue },
+                new Asset{AssetId = 3, Properties = PropertyEnum.IsConvertible, Value = false, Timestamp = DateTime.MinValue },
+                new Asset{AssetId = 5, Properties = PropertyEnum.IsConvertible, Value = false, Timestamp = DateTime.MinValue },
+                new Asset{AssetId = 5, Properties = PropertyEnum.IsCash, Value = false, Timestamp = DateTime.MinValue },
+                new Asset{AssetId = 5, Properties = PropertyEnum.IsFixIncome, Value = false, Timestamp = DateTime.MinValue },
+                new Asset{AssetId = 8, Properties = PropertyEnum.IsFuture, Value = false, Timestamp = DateTime.MinValue },
+                new Asset{AssetId = 8, Properties = PropertyEnum.IsSwap, Value = false, Timestamp = DateTime.MinValue },
+                new Asset{AssetId = 8, Properties = PropertyEnum.IsCash, Value = false, Timestamp = DateTime.MinValue }
+            };
+
+            _context.Assets.AddRange(defaultAssetList);
+            _context.SaveChanges();
 
             return true;
         }
 
         private bool CheckAssetCanBeAdded(Asset asset)
         {
-            var assetTaken = _context.Assets.Where(a => a.Id == asset.Id && a.Properties == asset.Properties);
+            var assetTaken = _context.Assets.Where(a => a.AssetId == asset.AssetId && a.Properties == asset.Properties);
 
-            return !assetTaken.Any(a => a.Timestamp.CompareTo(asset.Timestamp) >= 0);
+            return assetTaken == null || (!assetTaken.Any(a => a.Timestamp.CompareTo(asset.Timestamp) >= 0));
         }
 
-        private bool IsAssetExistInDb(Asset asset)
+        private Asset GetAsset(Asset asset)
         {
-            return _context.Assets.Where(a => a.Id == asset.Id && a.Properties == asset.Properties)
-                                  .Any();
+            return _context.Assets.Where(a => a.AssetId == asset.AssetId && a.Properties == asset.Properties)
+                                  .FirstOrDefault();
         }
 
         private ICollection<AssetCsvResponseModel> RemoveOrderedDuplicatesWithEarlierTimestamps(List<AssetCsvResponseModel> assetCsvList)

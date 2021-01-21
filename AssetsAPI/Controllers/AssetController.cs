@@ -1,8 +1,6 @@
-﻿using AssetsAPI.DataAccess;
-using AssetsAPI.Helpers;
+﻿using AssetsAPI.Helpers;
 using AssetsAPI.Models;
 using AssetsAPI.ServiceContracts;
-using AssetsAPI.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -43,10 +41,16 @@ namespace AssetsAPI.Controllers
             return (List<long>)_assetService.GetAssetIdList(assetIdRequestModel);
         }
 
-        [HttpGet("UpdateAsset")]
+        [HttpPost("UpdateAsset")]
         public bool UpdateAsset([FromBody]AssetUpdateModel assetUpdateModel)
         {
             return _assetService.UpdateAsset(assetUpdateModel);
+        }
+
+        [HttpPost("AddAssetListToDb")]
+        public bool AddAssetListToDb()
+        {
+            return _assetService.AddDefaultListToDb();
         }
 
     }
